@@ -106,19 +106,14 @@ VOID Routine(RTN rtn, VOID *v) {
 // This function is called when the application exits
 // It prints the name and count for each procedure
 VOID Fini(INT32 code, VOID *v) {
-    // outFile << setw(23) << "Procedure" << " "
-    //       << setw(15) << "Image" << " "
-    //       << setw(18) << "Address" << " "
-    //       << setw(12) << "Calls" << " "
-    //       << setw(12) << "Instructions" << endl;
 
     for (RTN_COUNT * rc = RtnList; rc; rc = rc->_next) {
         if (rc->_icount > 0)
-            outFile << setw(23) << rc->_name << " "
-                  << setw(15) << rc->_image << " "
-                  << setw(18) << hex << rc->_address << dec <<" "
-                  << setw(12) << rc->_rtnCount << " "
-                  << setw(12) << rc->_icount << endl;
+            outFile << rc->_name << ","
+                  << rc->_image << ","
+                  << hex << rc->_address << dec <<","
+                  << rc->_rtnCount << ","
+                  << rc->_icount << endl;
     }
 
 }
