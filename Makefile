@@ -31,6 +31,9 @@ test: pass
 		cd ../..; \
 	done;
 
+pin: pin/proccount.cpp
+	cd pin && make
+
 clean:
 	rm -f *.bc *.ll *.out *.s *.dot
 
