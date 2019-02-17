@@ -41,9 +41,10 @@ END_LEGAL */
 
 ofstream outFile;
 
+KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "funccount.csv", "specify output file name");
+
 // Holds instruction count for a single procedure
-typedef struct RtnCount
-{
+typedef struct RtnCount {
     string _name;
     string _image;
     ADDRINT _address;
@@ -57,13 +58,11 @@ typedef struct RtnCount
 RTN_COUNT * RtnList = 0;
 
 // This function is called before every instruction is executed
-VOID docount(UINT64 * counter)
-{
+VOID docount(UINT64 * counter) {
     (*counter)++;
 }
     
-const char * StripPath(const char * path)
-{
+const char * StripPath(const char * path) {
     const char * file = strrchr(path,'/');
     if (file)
         return file+1;
@@ -72,8 +71,7 @@ const char * StripPath(const char * path)
 }
 
 // Pin calls this function every time a new rtn is executed
-VOID Routine(RTN rtn, VOID *v)
-{
+VOID Routine(RTN rtn, VOID *v) {
     
     // Allocate a counter for this routine
     RTN_COUNT * rc = new RTN_COUNT;
@@ -96,8 +94,7 @@ VOID Routine(RTN rtn, VOID *v)
     RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)docount, IARG_PTR, &(rc->_rtnCount), IARG_END);
     
     // For each instruction of the routine
-    for (INS ins = RTN_InsHead(rtn); INS_Valid(ins); ins = INS_Next(ins))
-    {
+    for (INS ins = RTN_InsHead(rtn); INS_Valid(ins); ins = INS_Next(ins)) {
         // Insert a call to docount to increment the instruction counter for this rtn
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)docount, IARG_PTR, &(rc->_icount), IARG_END);
     }
@@ -108,16 +105,14 @@ VOID Routine(RTN rtn, VOID *v)
 
 // This function is called when the application exits
 // It prints the name and count for each procedure
-VOID Fini(INT32 code, VOID *v)
-{
-    outFile << setw(23) << "Procedure" << " "
-          << setw(15) << "Image" << " "
-          << setw(18) << "Address" << " "
-          << setw(12) << "Calls" << " "
-          << setw(12) << "Instructions" << endl;
+VOID Fini(INT32 code, VOID *v) {
+    // outFile << setw(23) << "Procedure" << " "
+    //       << setw(15) << "Image" << " "
+    //       << setw(18) << "Address" << " "
+    //       << setw(12) << "Calls" << " "
+    //       << setw(12) << "Instructions" << endl;
 
-    for (RTN_COUNT * rc = RtnList; rc; rc = rc->_next)
-    {
+    for (RTN_COUNT * rc = RtnList; rc; rc = rc->_next) {
         if (rc->_icount > 0)
             outFile << setw(23) << rc->_name << " "
                   << setw(15) << rc->_image << " "
@@ -132,8 +127,7 @@ VOID Fini(INT32 code, VOID *v)
 /* Print Help Message                                                    */
 /* ===================================================================== */
 
-INT32 Usage()
-{
+INT32 Usage() {
     cerr << "This Pintool counts the number of times a routine is executed" << endl;
     cerr << "and the number of instructions executed in a routine" << endl;
     cerr << endl << KNOB_BASE::StringKnobSummary() << endl;
@@ -144,16 +138,14 @@ INT32 Usage()
 /* Main                                                                  */
 /* ===================================================================== */
 
-int main(int argc, char * argv[])
-{
+int main(int argc, char * argv[]) {
     // Initialize symbol table code, needed for rtn instrumentation
     PIN_InitSymbols();
-
-    outFile.open("proccount.out");
 
     // Initialize pin
     if (PIN_Init(argc, argv)) return Usage();
 
+    outFile.open(KnobOutputFile.Value().c_str());
     // Register Routine to be called to instrument rtn
     RTN_AddInstrumentFunction(Routine, 0);
 
