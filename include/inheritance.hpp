@@ -26,7 +26,6 @@ public:
       scd_depth = static_cast<uint8_t>(puzzle_code % 256);
 
       rand_eng.seed(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count()));
-//      llvm::errs() << (int)array_size << "\t" << (int)fst_depth << "\t" << (int)scd_depth << "\n";
     }
 
     llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) override;
@@ -45,19 +44,57 @@ public:
 
     FloatPointPuzzle() = default;
 
-    FloatPointPuzzle(uint64_t puzzle_code, llvm::Module* M) : PuzzleBuilder(puzzle_code, M) {
+    FloatPointPuzzle(uint64_t puzzle_code, llvm::Module *M) : PuzzleBuilder(puzzle_code, M) {
       rand_eng.seed(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count()));
     }
 
     llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) override;
 
-    std::unique_ptr<PuzzleBuilder> clone(uint64_t puzzle_code, llvm::Module* M) override {
+    std::unique_ptr<PuzzleBuilder> clone(uint64_t puzzle_code, llvm::Module *M) override {
       return std::make_unique<FloatPointPuzzle>(puzzle_code, M);
     }
 
 private:
     std::default_random_engine rand_eng;
 };
+
+
+class TruePuzzle : public PuzzleBuilder {
+public:
+    const static std::string id;
+
+    TruePuzzle() = default;
+
+    TruePuzzle(uint64_t puzzle_code, llvm::Module *M) : PuzzleBuilder(puzzle_code, M) {}
+
+    llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) override {
+      return llvm::ConstantInt::get(Int1, 1);
+    }
+
+    std::unique_ptr<PuzzleBuilder> clone(uint64_t puzzle_code, llvm::Module *M) override {
+      return std::make_unique<TruePuzzle>(puzzle_code, M);
+    }
+};
+const std::string TruePuzzle::id = "TruePuzzle";
+
+
+class FalsePuzzle : public PuzzleBuilder {
+public:
+    const static std::string id;
+
+    FalsePuzzle() = default;
+
+    FalsePuzzle(uint64_t puzzle_code, llvm::Module *M) : PuzzleBuilder(puzzle_code, M) {}
+
+    llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) override {
+      return llvm::ConstantInt::get(Int1, 0);
+    }
+
+    std::unique_ptr<PuzzleBuilder> clone(uint64_t puzzle_code, llvm::Module *M) override {
+      return std::make_unique<FalsePuzzle>(puzzle_code, M);
+    }
+};
+const std::string FalsePuzzle::id = "FalsePuzzle";
 
 
 class BogusCFGTransformer : public Transformer<llvm::Function> {
@@ -130,5 +167,24 @@ public:
 private:
     std::default_random_engine rand_eng;
 };
+
+
+class EmptyTransformer : public Transformer<llvm::Function> {
+public:
+    const static std::string id;
+
+    EmptyTransformer() = default;
+
+    EmptyTransformer(uint64_t trans_code) : Transformer(trans_code) {}
+
+    llvm::Function *transform(llvm::Function *F, llvm::Value *predicate) override {
+      return F;
+    }
+
+    std::unique_ptr<Transformer<llvm::Function>> clone(uint64_t trans_code) override {
+      return std::make_unique<EmptyTransformer>(trans_code);
+    }
+};
+const std::string EmptyTransformer::id = "EmptyTransformer";
 
 #endif //PROJECT_INHERITANCE_HPP

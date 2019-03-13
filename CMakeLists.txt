@@ -10,3 +10,4 @@ include_directories(include)
 set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(fusor)
+

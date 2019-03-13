@@ -15,6 +15,8 @@ public:
     PuzzleBuilderFactory() {
       puzzles[DeepArrayPuzzle::id] = std::make_unique<DeepArrayPuzzle>();
       puzzles[FloatPointPuzzle::id] = std::make_unique<FloatPointPuzzle>();
+      puzzles[TruePuzzle::id] = std::make_unique<TruePuzzle>();
+      puzzles[FalsePuzzle::id] = std::make_unique<FalsePuzzle>();
 
       rand_eng.seed(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count()));
     }
@@ -51,6 +53,7 @@ public:
       transes[SecondOpaqueTransformer::id] = std::make_unique<SecondOpaqueTransformer>();
       transes[CFGFlattenTransformer::id] = std::make_unique<CFGFlattenTransformer>();
       transes[DataFlowTransformer::id] = std::make_unique<DataFlowTransformer>();
+      transes[EmptyTransformer::id] = std::make_unique<EmptyTransformer>();
 
       rand_eng.seed(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count()));
     }

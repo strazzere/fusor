@@ -191,4 +191,4 @@ static void registerFusorPass(const PassManagerBuilder &, legacy::PassManagerBas
 }
 
 static RegisterStandardPasses RegisterMyPass1(PassManagerBuilder::EP_EnabledOnOptLevel0, registerFusorPass);
-static RegisterStandardPasses RegisterMyPass2(PassManagerBuilder::EP_OptimizerLast, registerFusorPass);
+static RegisterStandardPasses RegisterMyPass2(PassManagerBuilder::EP_ScalarOptimizerLate, registerFusorPass);

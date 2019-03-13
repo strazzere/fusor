@@ -8,7 +8,7 @@
   ],
   "transformations": [
     {
-      "name": "DataFlowTransformer",
+      "name": "BogusCFGTransformer",
       "code": 356,
       "weight": 100
     }
