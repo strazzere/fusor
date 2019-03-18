@@ -75,7 +75,6 @@ public:
       return std::make_unique<TruePuzzle>(puzzle_code, M);
     }
 };
-const std::string TruePuzzle::id = "TruePuzzle";
 
 
 class FalsePuzzle : public PuzzleBuilder {
@@ -94,7 +93,6 @@ public:
       return std::make_unique<FalsePuzzle>(puzzle_code, M);
     }
 };
-const std::string FalsePuzzle::id = "FalsePuzzle";
 
 
 class BogusCFGTransformer : public Transformer<llvm::Function> {
@@ -185,6 +183,5 @@ public:
       return std::make_unique<EmptyTransformer>(trans_code);
     }
 };
-const std::string EmptyTransformer::id = "EmptyTransformer";
 
 #endif //PROJECT_INHERITANCE_HPP
