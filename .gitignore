@@ -50,3 +50,7 @@ build/
 
 # Log
 log.c
+
+# playground
+pg/
+
