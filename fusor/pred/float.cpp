@@ -25,8 +25,7 @@ Value * FloatPointPuzzle::build(SymvarLoc &svs_locs, Instruction *insert_point) 
   Value* args[2] = {};
   // end of debugging
 
-  uniform_real_distribution<float> fdiv_generator(1E7,
-          static_cast<float>(std::min<double>(numeric_limits<float>::max(), 1.0 / numeric_limits<float>::min())));
+  uniform_real_distribution<float> fdiv_generator(1E8, numeric_limits<float>::max());
 
   uniform_real_distribution<float> feq_generator(1E4, numeric_limits<float>::max());
 
@@ -38,28 +37,28 @@ Value * FloatPointPuzzle::build(SymvarLoc &svs_locs, Instruction *insert_point) 
     casted = irbuilder.CreateOr(casted, ConstantInt::get(Int8, 1));
     auto *toF = irbuilder.CreateSIToFP(casted, Float);
 
-    args[0] = ConstantInt::get(Int32, 1);
-    args[1] = toF;
+//    args[0] = ConstantInt::get(Int32, 1);
+//    args[1] = toF;
 //    irbuilder.CreateCall(logFunc, args);
 
-//    auto *dived = irbuilder.CreateFDiv(toF, ConstantFP::get(Float, fdiv_generator(rand_eng)));
-    auto *dived = irbuilder.CreateFDiv(toF, ConstantFP::get(Float, 1E6));
+    auto *dived = irbuilder.CreateFDiv(toF, ConstantFP::get(Float, fdiv_generator(rand_eng)));
+//    auto *dived = irbuilder.CreateFDiv(toF, ConstantFP::get(Float, 1E6));
 
-    args[0] = ConstantInt::get(Int32, 2);
-    args[1] = dived;
+//    args[0] = ConstantInt::get(Int32, 2);
+//    args[1] = dived;
 //    irbuilder.CreateCall(logFunc, args);
 
-//    auto eq_base = ConstantFP::get(Float, feq_generator(rand_eng));
-    auto eq_base = ConstantFP::get(Float, 1E4);
+    auto eq_base = ConstantFP::get(Float, feq_generator(rand_eng));
+//    auto eq_base = ConstantFP::get(Float, 1E4);
 
-    args[0] = ConstantInt::get(Int32, 3);
-    args[1] = eq_base;
+//    args[0] = ConstantInt::get(Int32, 3);
+//    args[1] = eq_base;
 //    irbuilder.CreateCall(logFunc, args);
 
     auto *left = irbuilder.CreateFAdd(dived, eq_base);
 
-    args[0] = ConstantInt::get(Int32, 4);
-    args[1] = left;
+//    args[0] = ConstantInt::get(Int32, 4);
+//    args[1] = left;
 //    irbuilder.CreateCall(logFunc, args);
 
     auto *eq_res = irbuilder.CreateFCmpOEQ(left, eq_base);
