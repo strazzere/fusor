@@ -50,8 +50,8 @@ std::vector<SymVar> search_symvar_declare(llvm::Function &F) {
 }
 
 
-std::map<llvm::Value*, llvm::Value*> cast_sv_to_uint8(SymvarLoc &svs_loc, llvm::IRBuilder<> &irbuilder) {
-  std::map<llvm::Value*, llvm::Value*> res;
+std::map<llvm::Value *, llvm::Value *> cast_sv_to_uint8(SymvarLoc &svs_loc, llvm::IRBuilder<> &irbuilder) {
+  std::map<llvm::Value *, llvm::Value *> res;
 
   for (auto &p : svs_loc) {
     auto *sv = p.first;
@@ -59,15 +59,15 @@ std::map<llvm::Value*, llvm::Value*> cast_sv_to_uint8(SymvarLoc &svs_loc, llvm::
     Instruction *load;
 
 //    if (!sv->getType()->isPointerTy()) {
-      auto *btc = irbuilder.CreateBitCast(loc, Int8_ptr, "btc");
-      load = irbuilder.CreateLoad(btc, "loaded");
+    auto *btc = irbuilder.CreateBitCast(loc, Int8_ptr, "btc");
+    load = irbuilder.CreateLoad(btc, "loaded");
 //    }
 //    else {
 //      auto *btc = irbuilder.CreateBitCast(sv, Int8_ptr, "btc");
 //      load = irbuilder.CreateLoad(btc, "loaded");
 //    }
 
-    res.insert(std::pair<llvm::Value*, llvm::Value*>(sv, load));
+    res.insert(std::pair<llvm::Value *, llvm::Value *>(sv, load));
   }
 
   return res;
