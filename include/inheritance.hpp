@@ -38,6 +38,37 @@ private:
 };
 
 
+class FlatArrayPuzzle : public PuzzleBuilder {
+public:
+  const static std::string id;
+
+  FlatArrayPuzzle() {
+    array_size = 64; fst_depth = 3; scd_depth = 5;
+  }
+
+  FlatArrayPuzzle(uint64_t puzzle_code, llvm::Module *M) : PuzzleBuilder(puzzle_code, M) {
+    array_size = static_cast<uint8_t>(puzzle_code % 256);
+    puzzle_code = puzzle_code >> 8;
+    fst_depth = static_cast<uint8_t>(puzzle_code % 256);
+    puzzle_code = puzzle_code >> 8;
+    scd_depth = static_cast<uint8_t>(puzzle_code % 256);
+    puzzle_code = puzzle_code >> 8;
+    dynamic = static_cast<bool>(puzzle_code % 2);
+
+    rand_eng.seed(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count()));
+  }
+
+  llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) override;
+
+  std::unique_ptr<PuzzleBuilder> clone(uint64_t, llvm::Module*) override;
+
+private:
+  uint8_t array_size, fst_depth, scd_depth;
+  std::default_random_engine rand_eng;
+  bool dynamic = True;
+};
+
+
 class FloatPointPuzzle : public PuzzleBuilder {
 public:
     const static std::string id;
