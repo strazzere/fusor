@@ -122,4 +122,20 @@ llvm::BasicBlock *split_bb_randomly(llvm::BasicBlock *bb, std::set<llvm::Value*>
 llvm::BasicBlock *fake_bb_builder(llvm::BasicBlock *base_bb, std::vector<llvm::Instruction*> seed);
 
 
+struct LLVMArray {
+  LLVMArray() = default;
+
+  LLVMArray(llvm::IRBuilder<> &irBuilder, llvm::Value *array) : array(array), irBuilder(irBuilder) { }
+
+  llvm::Value* operator [] (const size_t index) {
+    llvm::Value *vi[2] = {llvm::ConstantInt::get(Int64, 0), llvm::ConstantInt::get(Int64, index)};
+    auto i = llvm::ArrayRef<llvm::Value *>(vi, 2);
+    return irBuilder.CreateInBoundsGEP(array, i);
+  }
+
+private:
+  llvm::Value *array;
+  llvm::IRBuilder<> irBuilder;
+};
+
 #endif //PROJECT_UTILS_HPP
