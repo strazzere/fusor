@@ -1,14 +1,14 @@
 {
   "predicates": [
     {
-      "name": "FloatPointPuzzle",
+      "name": "DeepArrayPuzzle",
       "code": 657535,
       "weight": 100
     }
   ],
   "transformations": [
     {
-      "name": "BogusCFGTransformer",
+      "name": "SecondOpaqueTransformer",
       "code": 356,
       "weight": 100
     }
