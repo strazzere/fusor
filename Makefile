@@ -10,12 +10,12 @@ cfg: opt
 assembly:
 	@llc-3.8 out.ll && clang out.s
 
-rebuild: example.c pass
-	@clang -S -emit-llvm example.c
-	@clang -c -emit-llvm example.c
+rebuild: examples/example.c pass
+	@clang -S -emit-llvm examples/example.c
+	@clang -c -emit-llvm examples/example.c
 
-full: pass example.c
-	@clang -Xclang -load -Xclang build/fusor/libFusorPass.so example.c
+full: pass examples/example.c
+	@clang -Xclang -load -Xclang build/fusor/libFusorPass.so examples/example.c
 
 test: pass
 	@for dir in $$(ls tests); do \
@@ -37,8 +37,8 @@ pin: pin/proccount.cpp
 clean:
 	rm -f *.bc *.ll *.out *.s *.dot
 
-debug: log.c pass example.c
+debug: log.c pass examples/example.c
 	@clang -c log.c
-	@clang -Xclang -load -Xclang build/fusor/libFusorPass.so -c example.c
+	@clang -Xclang -load -Xclang build/fusor/libFusorPass.so -c examples/example.c
 	@clang log.o example.o
 	@rm example.o
