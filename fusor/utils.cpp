@@ -2,7 +2,7 @@
 // Created by neil on 10/20/18.
 //
 #include "utils.hpp"
-
+#include "llvm/Support/raw_ostream.h"
 
 using namespace std;
 using namespace llvm;
@@ -56,16 +56,25 @@ std::map<llvm::Value *, llvm::Value *> cast_sv_to_uint8(SymvarLoc &svs_loc, llvm
   for (auto &p : svs_loc) {
     auto *sv = p.first;
     auto *loc = p.second;
-    Instruction *load;
-
-//    if (!sv->getType()->isPointerTy()) {
-    auto *btc = irbuilder.CreateBitCast(loc, Int8_ptr, "btc");
-    load = irbuilder.CreateLoad(btc, "loaded");
-//    }
-//    else {
-//      auto *btc = irbuilder.CreateBitCast(sv, Int8_ptr, "btc");
-//      load = irbuilder.CreateLoad(btc, "loaded");
-//    }
+    Value *load;
+//    errs() << *sv << "\t" << *loc << "\t" << *sv->getType() << "\t" << sv->getType()->isPointerTy() << "\n";
+    if (!sv->getType()->isPointerTy()) {
+//    if (false) {
+      auto *sv_space = irbuilder.CreateAlloca(sv->getType());
+      irbuilder.CreateStore(sv, sv_space);
+      auto *btc = irbuilder.CreateBitCast(sv_space, Int8_ptr, "btc");
+      load = irbuilder.CreateLoad(btc, "loaded");
+    }
+    else {
+      auto *btc2 = irbuilder.CreateBitCast(sv, Int8_ptr, "btc");
+      load = irbuilder.CreateLoad(btc2, "loaded");
+//      auto *btc = irbuilder.CreateLoad(sv, "loaded");
+//      if (!btc->getType()->isPointerTy())
+//        load = irbuilder.CreateBitCast(btc, Int8, "btc");
+//      else {
+//
+//      }
+    }
 
     res.insert(std::pair<llvm::Value *, llvm::Value *>(sv, load));
   }
