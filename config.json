@@ -2,7 +2,7 @@
   "predicates": [
     {
       "name": "DeepArrayPuzzle",
-      "code": 657535,
+      "code": 65796,
       "weight": 100
     }
   ],
@@ -12,5 +12,9 @@
       "code": 356,
       "weight": 100
     }
-  ]
+  ],
+  "random": true,
+  "guide": {
+
+  }
 }
