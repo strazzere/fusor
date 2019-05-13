@@ -17,6 +17,8 @@ Function *SecondOpaqueTransformer::transform(Function *F, Value *predicate) {
       auto *right_des = B.getTerminator()->getOperand(1), *left_des = B.getTerminator()->getOperand(2);
       IRBuilder<> irbuilder(B.getTerminator());
       auto *covered = irbuilder.CreateAnd(old_pred, predicate);
+//      auto *negate = irbuilder.CreateXor(predicate, 1);
+//      auto *covered = irbuilder.CreateXor(old_pred, negate);
       B.getTerminator()->eraseFromParent();
       BranchInst::Create(ISINSTANCE(left_des, BasicBlock), ISINSTANCE(right_des, BasicBlock), covered, &B);
     }

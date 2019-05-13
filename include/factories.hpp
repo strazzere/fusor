@@ -17,6 +17,7 @@ public:
       puzzles[FloatPointPuzzle::id] = std::make_unique<FloatPointPuzzle>();
       puzzles[TruePuzzle::id] = std::make_unique<TruePuzzle>();
       puzzles[FalsePuzzle::id] = std::make_unique<FalsePuzzle>();
+      puzzles[NoResiliencePuzzle::id] = std::make_unique<NoResiliencePuzzle>();
 
       rand_eng.seed(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count()));
     }
