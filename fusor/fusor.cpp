@@ -49,6 +49,9 @@ namespace {
         errs() << "[Error] Fail to load configuration file, exiting...\n\n";
         exit(1);
       }
+      // errs() << M.getName() << "\n";
+      if (IN_SET(M.getName(), module_black_list))
+        return false;
 
       for (auto &F : M) {
         int op_cnt = 0;
@@ -56,8 +59,10 @@ namespace {
         if (F.isDeclaration())
           continue;
 
-        if (IN_SET(F.getName(), func_black_list))
+        if (IN_SET(F.getName(), func_black_list)) {
+          errs() << "Black " << F.getName() << "\n";
           continue;
+        }
 
         if (!use_random) {
           if (IN_MAP(F.getName(), guide_map)) {
@@ -90,7 +95,8 @@ namespace {
         }
 
         func_names.open("/home/neil/Fusion/func.csv", ios::out | ios::app);
-        func_names << F.getName().str() << ", " << sym_vars.size() << endl;
+        func_names << F.getName().str() << ", " << sym_vars.size() << ", " << M.getName().str() << endl;
+        func_names.close();
 
         for (auto &B : F)
           BBs.emplace_back(&B);
@@ -220,6 +226,12 @@ namespace {
         }
       }
 
+      if (IN_MAP("module_black_list", config)) {
+        for (auto &p : config["module_black_list"]) {
+          module_black_list.emplace(p.get<string>());
+        }
+      }
+
       return True;
     }
 
@@ -230,6 +242,7 @@ namespace {
     map<string, uint64_t> trans_conf, pred_conf;
     map<string, size_t> guide_map;
     set<string> func_black_list;
+    set<string> module_black_list;
   };
 };
 

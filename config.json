@@ -2,7 +2,7 @@
   "predicates": [
     {
       "name": "DeepArrayPuzzle",
-      "code": 65796,
+      "code": 328992,
       "weight": 100
     }
   ],
@@ -15,6 +15,35 @@
   ],
   "random": true,
   "guide": {
-
-  }
+    "wc": 0,
+    "safe_read": 0,
+    "rpl_mbrtowc": 0,
+    "test": 0,
+    "xstrtoul": 100,
+    "string_to_join_field": 0,
+    "add_field_list": 0,
+    "freopen_safer": 0
+  },
+  "func_black_list": [
+    "re_dfa_add_node",
+    "xpalloc",
+    "EGexecute",
+    "build_charclass_op",
+    "build_charclass",
+    "kwsalloc",
+    "enqueue",
+    "_obstack_free",
+    "sortlines",
+    "stream_open",
+    "write_line",
+    "xfclose"
+  ],
+  "module_black_list": [
+    "lib/xmalloc.c",
+    "lib/nproc.c",
+    "c-stack.c",
+    "xmalloc.c",
+    "nproc.c",
+    "kwset.c"
+  ]
 }

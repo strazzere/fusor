@@ -131,20 +131,22 @@ if __name__ == '__main__':
   parser.add_argument("-v", "--verbose", help="Show debug info", action="store_true")
   parser.add_argument("-d", "--dfs", help="Use DFS", action="store_true")
   parser.add_argument("-c", "--csv", default="funccount.csv", type=str, help="csvfile path")
+  parser.add_argument("-t", "--targeted", default=None, type=str, help="targeted")
+  parser.add_argument("-T", "--timeout", default=3600, type=int, help="timeout")
   parser.add_argument("-i", "--inspect", help="disable bp", action="store_false")
-  parser.add_argument("-C", "--coverage", help="Collect branch coverage", action="store_true")
+  parser.add_argument("-C", "--coverage", help="Collect branch coverage", type=str, default=None)
   parser.add_argument("file_path", type=str, help="Binary path")
   args = parser.parse_args()
-  
+
   p = angr.Project(args.file_path, auto_load_libs= not args.disable_auto_load)
   if args.verbose:
     angr.manager.l.setLevel('DEBUG')
   
   cfg = p.analyses.CFGFast(normalize=True)
-  brs = {s for s in cfg.nodes() if len(s.successors) > 1}
-  edges = {(b.addr, s.addr) for b in brs for s in b.successors}
+  # brs = {s for s in cfg.nodes() if len(s.successors) > 1}
+  # edges = {(b.addr, s.addr) for b in brs for s in b.successors}
 
-  target_functions = load_csv(args.csv)
+  # target_functions = load_csv(args.csv)
   helper = CFGHelper(cfg)
   sv = claripy.BVS('packet_args', 8 * 24)
   s = p.factory.entry_state(args=[p.filename, sv])
@@ -163,11 +165,32 @@ if __name__ == '__main__':
   # p.hook_symbol('getopt_long', atexit())
   
   simgr = p.factory.simgr(s)
-  
+
+  if args.coverage:
+    with open(args.coverage) as f:
+      brs = {cfg.get_any_node(int(l, base=16), anyaddr=True).addr for l in f}
+    # edges = {(b.addr, s.addr) for b in brs if len(b.successors) > 1 for s in b.successors}
   # simgr.explore(find=0x403610)
   # embed()
-  
-  def tracer(simgr, edges, start, p):
+
+  def br_counter(simgr, cfg):
+    final_funcs = set()
+    for p in simgr.active:
+      a = tuple(filter(lambda x: x, [cfg.functions.get(bbl) for bbl in p.history.bbl_addrs]))
+      final_funcs.update(a)
+
+    br_cnt = 0
+    for f in final_funcs:
+      nodes = list(f.nodes())
+      graph_set = {n._graph for n in nodes if getattr(n, '_graph', None)}
+      graph = next(iter(graph_set))
+      for n in nodes:
+        if len(list(graph.successors(n))) > 1:
+          br_cnt += len(list(graph.successors(n)))
+
+    return br_cnt, len(final_funcs)
+
+  def tracer(simgr, edges, start, p, cfg):
     global cnt
     write = False
     for a in simgr.active:
@@ -179,25 +202,59 @@ if __name__ == '__main__':
           edges.remove((b1, b2))
       if write:
         with open('{}.csv'.format(p.filename), 'a') as f:
-          f.write('{}, {}, {:.2f}\n'.format(len(edges), cnt, time.time() - start))
+          # r = br_counter(simgr, cfg)
+          f.write('{}, {}, {}, {:.2f}\n'.format(len(edges), len(brs), cnt, time.time() - start))
+        write = False
+
+  def found_tracer(simgr, start):
+    global cnt
+    if len(simgr.found) != cnt:
+      cnt = len(simgr.found)
+      with open('{}.csv'.format(p.filename), 'a') as f:
+        f.write('{}, {}, {:.2f}\n'.format(len(brs), cnt, time.time() - start))
+
+  def br_tracer(brs, start):
+    global cnt
+    write = False
+    for a in simgr.active:
+      for b in a.history.bbl_addrs:
+        if b in brs:
+          cnt += 1
+          write = True
+          brs.remove(b)
+      if write:
+        with open('{}.csv'.format(p.filename), 'a') as f:
+          f.write('{}, {}, {:.2f}\n'.format(len(brs), cnt, time.time() - start))
         write = False
 
   if args.coverage:
     if os.path.exists('{}.csv'.format(p.filename)):
       os.remove('{}.csv'.format(p.filename))
 
+  start = time.time()
   if args.dfs:
     simgr.use_technique(angr.exploration_techniques.DFS())
     simgr.run(until=lambda x: len(simgr.deadended) > 3000)
-  else:
-    start = time.time()
-    cnt = 0
-    # simgr.run(until=lambda x: time.time() - start > 1800, callback=lambda: tracer(simgr, edges, start, p))
-    simgr.explore(find=0x416c92, until=lambda x: time.time() - start > 2 * 3600)
+  elif args.targeted:
+    simgr.explore(find=int(args.targeted, base=16), until=lambda x: time.time() - start > args.timeout)
     end = time.time()
     print(end - start)
-    # simgr.run(until=lambda x: len(simgr.active) > 1000)
-    # simgr.explore()
+  else:
+    if args.coverage:
+      cnt = 0
+      simgr.explore(until=lambda x: time.time() - start > args.timeout, callback=lambda: br_tracer(brs, start))
+      # while time.time() - start < args.timeout:
+      #   simgr.explore(find=brs, until=lambda x: time.time() - start > args.timeout)
+      #   for f in simgr.found:
+      #     addr = f.addr
+      #     if addr in brs:
+      #       brs.remove(addr)
+
+      #   with open('{}.csv'.format(p.filename), 'a') as f:
+      #     f.write('{}, {}, {:.2f}\n'.format(init_length, len(brs), time.time() - start))
+      #   simgr.stash(from_stash="found", to_stash="active")
+    else:
+      simgr.explore(until=lambda x: time.time() - start > args.timeout)
   
   # cfg = p.analyses.CFGFast(normalize=True)
   # fs = {cfg.functions[f[1].args[0]].name for f in functions}
