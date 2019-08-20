@@ -16,42 +16,47 @@
 
 class PuzzleBuilder {
 public:
-    const static std::string id;
+  const static std::string id;
 
-    PuzzleBuilder() {
-      puzzle_code = 0;
-      module = nullptr;
-    }
+  PuzzleBuilder() {
+    puzzle_code = 0;
+    module = nullptr;
+  }
 
-    PuzzleBuilder(uint64_t puzzle_code, llvm::Module *M) :
-            puzzle_code(puzzle_code), module(M) {}
+  PuzzleBuilder(uint64_t puzzle_code, llvm::Module *M) :
+          puzzle_code(puzzle_code), module(M) {}
 
-    virtual llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) = 0;
+  virtual llvm::Value *build(SymvarLoc &svs_locs, llvm::Instruction *insert_point) = 0;
 
-    virtual std::unique_ptr<PuzzleBuilder> clone(uint64_t, llvm::Module*) = 0;
+  virtual size_t build(std::vector<FusorSymVar *> &fsym_vars) = 0;
+
+  virtual std::unique_ptr<PuzzleBuilder> clone(uint64_t, llvm::Module *) = 0;
 
 protected:
-    llvm::Module *module;
-    uint64_t puzzle_code;
+  llvm::Module *module;
+  uint64_t puzzle_code;
 };
 
 
-template <typename T> class Transformer {
+template<typename T>
+class Transformer {
 public:
-    const static std::string id;
+  const static std::string id;
 
-    Transformer() {
-      trans_code = 0;
-    }
+  Transformer() {
+    trans_code = 0;
+  }
 
-    explicit Transformer(uint64_t trans_code) : trans_code(trans_code) {}
+  explicit Transformer(uint64_t trans_code) : trans_code(trans_code) {}
 
-    virtual T *transform(T *t, llvm::Value *predicate) = 0;
+  virtual T *transform(T *t, llvm::Value *predicate) = 0;
 
-    virtual std::unique_ptr<Transformer<T>> clone(uint64_t) = 0;
+  virtual T *transform(T *t, std::vector<FusorSymVar *> &predicates) = 0;
+
+  virtual std::unique_ptr<Transformer<T>> clone(uint64_t) = 0;
 
 protected:
-    uint64_t trans_code;
+  uint64_t trans_code;
 };
 
 

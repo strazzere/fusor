@@ -13,6 +13,7 @@
       "weight": 100
     }
   ],
+  "debug": 2,
   "random": true,
   "guide": {
     "wc": 0,
@@ -45,5 +46,6 @@
     "xmalloc.c",
     "nproc.c",
     "kwset.c"
-  ]
+  ],
+  "func_info": "/home/neil/Fusion/func_info.csv"
 }

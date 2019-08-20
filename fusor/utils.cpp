@@ -108,3 +108,35 @@ const SymvarLoc move_symvar_to_front(BasicBlock *BB, const vector<Value *> &sym_
 
   return locations;
 }
+
+inline map<Value*, set<BasicBlock*>> get_effective_regions(Function* F, const vector<Value *> &sym_vars) {
+  DominatorTree dom_tree(*F);
+  map<Value*, set<BasicBlock*>> results;
+
+  for (auto *sv : sym_vars) {
+    auto *type = sv->getType();
+    if (type->isPointerTy()) {
+      set<Value*> aliases;
+      aliases.insert(sv);
+      // search for stores or loads
+      for (auto &u : sv->uses()) {
+        if (auto *storeI = ISINSTANCE(u.getUser(), StoreInst)) {
+          aliases.insert(storeI->getOperand(1));
+        }
+      }
+
+      set<Instruction* > uses;
+      for (auto *v : aliases) {
+        for (auto &u : v->uses()) {
+          if (auto *loadI = ISINSTANCE(u.getUser(), LoadInst)) {
+            uses.insert(loadI);
+          }
+        }
+      }
+    }
+    else {
+
+    }
+  }
+  return results;
+}

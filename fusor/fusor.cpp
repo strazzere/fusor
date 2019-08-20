@@ -1,8 +1,8 @@
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Support/CommandLine.h"
 #include "utils.hpp"
 #include "inheritance.hpp"
 #include "factories.hpp"
@@ -40,13 +40,14 @@ using json = nlohmann::json;
 namespace {
   struct FusorPass : public ModulePass {
     static char ID;
-    ofstream func_names;
 
     FusorPass() : ModulePass(ID) {}
 
     bool runOnModule(Module &M) override {
+      bool changed = false;
+
       if (!load_config()) {
-        errs() << "[Error] Fail to load configuration file, exiting...\n\n";
+        errs() << "\033[91m[ERROR]: Fail to load configuration file, exiting...\033[0mn\n";
         exit(1);
       }
       // errs() << M.getName() << "\n";
@@ -54,34 +55,33 @@ namespace {
         return false;
 
       for (auto &F : M) {
-        int op_cnt = 0;
         // ignore declaration
-        if (F.isDeclaration())
+        if (F.isDeclaration()) {
           continue;
+        }
 
         if (IN_SET(F.getName(), func_black_list)) {
-          errs() << "Black " << F.getName() << "\n";
+          if (dbg_level > 1)
+            errs() << "\033[96m[INFO]: '" << F.getName() << "' in the blacklist, ignoring...\033[0m\n";
           continue;
         }
 
-        if (!use_random) {
-          if (IN_MAP(F.getName(), guide_map)) {
-            op_cnt = guide_map[F.getName()];
-          }
-        }
-        else {
+        int op_cnt = 0;
+        if (!use_random && IN_MAP(F.getName(), guide_map)) {
+          op_cnt = guide_map[F.getName()];
+        } else {
           op_cnt = 1;
         }
 
-        if (op_cnt <= 0)
+        if (op_cnt <= 0) {
+          if (dbg_level > 1)
+            errs() << "\033[96m[INFO]: '" << F.getName() << "' is ignored by guided mode...\033[0m\n";
           continue;
+        }
 
         vector<Value *> sym_vars;
-        deque<BasicBlock *> BBs;
 
         rand_engine.seed(++seed);
-
-        errs() << "Obfuscating \"" << F.getName() << "\"\n";
 
         // append arguments
         for (auto &a : F.args()) {
@@ -90,64 +90,95 @@ namespace {
 
         // Initialize
         if (sym_vars.empty()) { // nothing will be changed if this function's arg list is empty
-          errs() << "Pass " << F.getName() << "\n";
+          if (dbg_level > 2)
+            errs() << "\033[95m[DEBUG]: '" << F.getName() << "' has zero arguments, skipping...\033[0m\n";
           continue;
         }
 
-        func_names.open("/home/neil/Fusion/func.csv", ios::out | ios::app);
-        func_names << F.getName().str() << ", " << sym_vars.size() << ", " << M.getName().str() << endl;
-        func_names.close();
-
-        for (auto &B : F)
-          BBs.emplace_back(&B);
-
-        // move symvar alloca and store instruction into front
-        auto *sv_bb = BasicBlock::Create(F.getContext(), "sv_bb", &F, BBs.front());
-        BranchInst::Create(BBs.front(), sv_bb);
-
-        auto svs_loc = move_symvar_to_front(sv_bb, sym_vars);
-        // after moving, then you can do whatever you want with symvar
+        if (func_names.is_open()) {
+          func_names << F.getName().str() << "," << sym_vars.size() << "," << M.getName().str() << endl;
+          func_names.close();
+        }
 
         PuzzleBuilderFactory pz_factory;
         FunctionTransformerFactory tr_factory;
 
         auto pz_builder = pz_factory.get_builder_randomly(pred_conf, &M);
         if (pz_builder == nullptr) {
-          errs() << "[Error] Fail to get opaque predicates builder, exiting...\n\n";
+          errs() << "\033[91m[ERROR]: Fail to get an opaque predicates builder, exiting...\033[0m\n\n";
           exit(1);
         }
-
-        IRBuilder<> irbuilder(sv_bb->getTerminator());
-        auto *predicate = pz_builder->build(svs_loc, sv_bb->getTerminator());
-        for (int i : range<size_t >(op_cnt - 1)) {
-          auto *tmp = pz_builder->build(svs_loc, sv_bb->getTerminator());
-          irbuilder.SetInsertPoint(sv_bb->getTerminator());
-          predicate = irbuilder.CreateAnd(tmp, predicate);
-        }
-
-        // merge sv bb
-        sv_bb->getTerminator()->eraseFromParent();
-        auto *merge_point = ISINSTANCE(BBs.front()->getFirstInsertionPt(), Instruction);
-        vector<Instruction *> backup_ins_sv;
-        for (auto &I : *sv_bb) {
-          backup_ins_sv.emplace_back(&I);
-        }
-        for (auto *I : backup_ins_sv) {
-          I->moveBefore(merge_point);
-        }
-        sv_bb->eraseFromParent();
 
         auto tr_builder = tr_factory.get_transformer_randomly(trans_conf);
         if (tr_builder == nullptr) {
-          errs() << "[Error] Fail to get transformer, exiting...\n\n";
+          errs() << "\033[91m[ERROR]: Fail to get a transformer, exiting...\033[0m\n\n";
           exit(1);
         }
-        tr_builder->transform(&F, predicate);
 
-        errs() << "====== DONE ======\n";
+        // start of obfuscation
+        if (dbg_level > 1)
+          errs() << "\033[96m[INFO]: Obfuscating '" << F.getName() << "'\033[0m\n";
+        DominatorTree dom_tree(F);
+        deque<BasicBlock *> BBs;
+
+        for (auto &B : F) {
+          BBs.emplace_back(&B);
+        }
+
+        auto *entry_BB = BBs.front();
+//        auto svs_loc = move_symvar_to_front(entry_BB, sym_vars);
+        vector<FusorSymVar* > fsym_vars;
+        for (auto *sv : sym_vars) {
+          auto *fsv = new FusorSymVar(sv, F);
+          if (fsv->build_effective_region(dom_tree)) {
+            fsym_vars.emplace_back(fsv);
+            errs() << "t: " << *fsv->insert_point << "\n";
+          }
+        }
+
+        if (fsym_vars.empty()) {
+          if (dbg_level > 1)
+            errs() << "\033[96m[INFO]: '" << F.getName() << "' is ignored because of lack of valid sym. vars...\033[0m\n";
+        }
+        changed = true;
+
+        if (dbg_level > 2)
+          errs() << "\033[95m[DEBUG] Before building predicates\033[0m\n";
+
+        for (auto &B : F)
+          B.setName("dbg");
+
+//        for (auto *fsv : fsym_vars) {
+//          errs() << fsv->work_list
+//        }
+
+//        errs() << op_cnt << "\ta0\n";
+//        errs() << *entry_BB << "\n";
+        IRBuilder<> irbuilder(entry_BB->getTerminator());
+//        errs() << op_cnt << "\ta1\n";
+        for (size_t i : range<size_t>(op_cnt)) {
+//          errs() << i << "\ta2\n";
+          pz_builder->build(fsym_vars);
+        }
+
+//        for (int i : range<size_t>(op_cnt - 1)) {
+//          auto predicates_new = pz_builder->build(fsym_vars, entry_BB->getTerminator());
+//          for (auto &p : predicates_new) {
+//            auto *fsv = p.first; auto *val = p.second;
+//            irbuilder.SetInsertPoint(fsv->insert_point);
+//            predicates[fsv] = irbuilder.CreateAnd(predicates[fsv], val);
+//          }
+//        }
+
+        if (dbg_level > 2)
+          errs() << "\033[95m[DEBUG] Before transformation\033[0m\n";
+
+        tr_builder->transform(&F, fsym_vars);
+
+//        errs() << "\033[92m====== DONE ======\033[0m\n";
       }
 
-      return True;
+      return changed;
     }
 
   private:
@@ -165,11 +196,11 @@ namespace {
           in_file >> config;
         }
         catch (json::parse_error) {
-          errs() << "--- JSON format ERROR! --- \n";
+          errs() << "\033[91m[ERROR]: JSON format ERROR! Exiting...\033[0m\n";
           return False;
         }
       } else {
-        errs() << "--- Config file " << config_path << " not found! ---\n";
+        errs() << "\033[91m[ERROR]: Config file '" << config_path << "' not found! Exiting...\033[0m\n";
         return False;
       }
 
@@ -184,11 +215,11 @@ namespace {
         if (IN_MAP(k, config)) {
           for (auto &p : config[k]) {
             if (!IN_MAP("name", p)) {
-              errs() << "--- Missing \"name\" field ---\n";
+              errs() << "\033[91m[ERROR]: Missing \"name\" field.\033[0m\n";
               return False;
             }
             if (!IN_MAP("code", p)) {
-              errs() << "--- Missing \"code\" field in " << p["name"].get<string>() << " ---\n";
+              errs() << "\033[91m[ERROR]: Missing \"code\" field in " << p["name"].get<string>() << ".\033[0m\n";
               return False;
             }
 
@@ -199,15 +230,14 @@ namespace {
             }
           }
         } else {
-          errs() << "--- Missing key: " << k << " ---\n";
+          errs() << "\033[91m[ERROR]: Missing key: '" << k << "'\033[0m\n";
           return False;
         }
       }
 
       if (IN_MAP("random", config)) {
         use_random = config["random"];
-      }
-      else {
+      } else {
         use_random = true;
       }
 
@@ -215,9 +245,8 @@ namespace {
         for (auto &func_name : config["guide"].items()) {
           guide_map[func_name.key()] = func_name.value();
         }
-      }
-      else if (!use_random) {
-        errs() << "--- Must provide guider information if random is set false ---\n";
+      } else if (!use_random) {
+        errs() << "\033[91m[ERROR]: Must provide guide information if random is set false.\033[0m\n";
       }
 
       if (IN_MAP("func_black_list", config)) {
@@ -232,6 +261,16 @@ namespace {
         }
       }
 
+      if (IN_MAP("func_info", config)) {
+        func_names.open(config["func_info"], ios::out | ios::app);
+      }
+
+      if (IN_MAP("debug", config)) {
+        dbg_level = config["debug"];
+      } else {
+        dbg_level = 2;
+      }
+
       return True;
     }
 
@@ -243,6 +282,8 @@ namespace {
     map<string, size_t> guide_map;
     set<string> func_black_list;
     set<string> module_black_list;
+    ofstream func_names;
+    int dbg_level;
   };
 };
 

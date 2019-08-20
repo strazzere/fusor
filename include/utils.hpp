@@ -15,6 +15,7 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -31,7 +32,7 @@
 #define False false // For Python lovers!
 #define IN_SET(ELEM, SET) (SET.find(ELEM) != SET.end())
 #define IN_MAP(KEY, MAP) (MAP.find(KEY) != MAP.end())
-#define ISINSTANCE(OBJ_P, CLASS) (dyn_cast<CLASS>(OBJ_P))
+#define ISINSTANCE(OBJ_P, CLASS) (llvm::dyn_cast<CLASS>(OBJ_P))
 
 #define SYMVAR_FUNC "fusor_symvar"
 
@@ -85,6 +86,10 @@ std::vector<llvm::Instruction *> search_symvar_func_call(llvm::Function &F);
 std::vector<SymVar> search_symvar_declare(llvm::Function &F);
 
 
+inline std::map<llvm::Value*, std::set<llvm::BasicBlock*>>
+        get_effective_regions(llvm::Function*, const std::vector<llvm::Value *>&);
+
+
 const SymvarLoc move_symvar_to_front(llvm::BasicBlock *BB, const std::vector<llvm::Value *> &sym_var);
 
 
@@ -136,6 +141,83 @@ struct LLVMArray {
 private:
   llvm::Value *array;
   llvm::IRBuilder<> irBuilder;
+};
+
+
+struct FusorSymVar {
+  llvm::Value *sym_var, *casted_val = nullptr, *obf_val = nullptr;
+  llvm::Instruction *insert_point = nullptr;
+  std::set<llvm::BasicBlock*> work_list;
+
+  FusorSymVar(llvm::Value* sym_var, llvm::Function &F) : sym_var(sym_var), F(F) {}
+
+  bool build_effective_region(llvm::DominatorTree &dom_tree) {
+    if (!sym_var->getType()->isPointerTy()) {
+      auto *inst_p = &F.front().front();
+      llvm::IRBuilder<> irbuilder(inst_p);
+      auto *sv_space = irbuilder.CreateAlloca(sym_var->getType());
+      irbuilder.CreateStore(sym_var, sv_space);
+      auto *casted_ptr = irbuilder.CreateBitCast(sv_space, Int8_ptr, "casted_ptr");
+      casted_val = irbuilder.CreateLoad(casted_ptr);
+      insert_point = inst_p;
+      for (auto &B : F)
+        work_list.insert(&B);
+    }
+    else { // search for *first* load
+      std::set<llvm::Value*> aliases;
+      aliases.insert(sym_var);
+      for (auto &u : sym_var->uses()) {
+        if (ISINSTANCE(u.getUser(), llvm::StoreInst) ||
+                ISINSTANCE(u.getUser(), llvm::GetElementPtrInst)) {
+          aliases.insert(u.getUser());
+        }
+      }
+
+      std::set<llvm::Instruction*> uses;
+      for (auto *v : aliases) {
+        for (auto &u : v->uses()) {
+          if (auto *loadI = ISINSTANCE(u.getUser(), llvm::LoadInst)) {
+            uses.insert(loadI);
+          }
+        }
+      }
+
+      llvm::Instruction *final_inst = nullptr;
+      std::set<llvm::BasicBlock*> effective_region;
+      for (auto *u : uses) {
+        std::set<llvm::BasicBlock*> use_region;
+        for (auto &B : F) {
+          if (dom_tree.dominates(u, &B)) {
+            use_region.insert(&B);
+          }
+        }
+        if (use_region.size() > effective_region.size()) {
+          final_inst = u;
+          effective_region = use_region;
+        }
+      }
+
+      if (final_inst) {
+        llvm::IRBuilder<> irBuilder(final_inst);
+        auto *casted_ptr = irBuilder.CreateBitCast(sym_var, Int8_ptr, "casted_ptr");
+        casted_val = irBuilder.CreateLoad(casted_ptr);
+        work_list = effective_region;
+        insert_point = final_inst;
+//        llvm::errs() << "y: " << *casted_val << "\n";
+//        llvm::errs() << "c: " << *insert_point << "\n";
+      }
+      else {
+        // symvar is not used
+        return false;
+      }
+    }
+    return true;
+  }
+
+//  ~FusorSymVar() {llvm::errs() << "destroying...\n";}
+
+private:
+  llvm::Function &F;
 };
 
 #endif //PROJECT_UTILS_HPP
